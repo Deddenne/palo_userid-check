@@ -19,12 +19,8 @@ from multiprocessing import cpu_count
 import requests
 import webbrowser
 import argparse
-import ipaddress
 from argparse import RawTextHelpFormatter
 from OpenSSL import SSL
-import socket
-import datetime
-import time
 import matplotlib.pyplot as plt
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.cbook import get_sample_data
@@ -45,31 +41,17 @@ parser = argparse.ArgumentParser(add_help=True,
 					formatter_class=RawTextHelpFormatter,
 					description='Usage Examples: \n\n\tpython3 userid-check.py -x\n\n\tpython3 userid-check.py -x -w\n\n\tpython3 userid-check.py -x -o -w\n\n\tpython3 userid-check.py -c -x -o -w\n\n\tpython3 userid-check.py -x -w yourfile.html\n\n\tpython3 userid-check.py -x -o -w yourfile.html\n\n\tpython3 userid-check.py -c -x -o -w yourfile.html\n\n\tpython3 userid-check.py -c -x -o -w -n\n\n\tpython3 userid-check.py -c -x -o -w yourfile.html -n yourdiagram.png')
 
-parser.add_argument("-x", action = "store_true", help="Optional - Disable Links Pop-Up")
-
 parser.add_argument("-w", required='-o' in sys.argv, nargs='?', const='output.html', help="Optional - Create WebPage from output.  If no file is specified after '-w', then 'output.html' will be used")
 
 parser.add_argument("-o", action = "store_true", help="Requires '-w' - Open Results in Web Browser")
 
 parser.add_argument("-c", action = "store_true", help="Writes CSV (2 total)")
 
-parser.add_argument("-n", required='-o' in sys.argv, nargs='?', const='diagram.png', help="Optional - Create Relational Diagram of Devices and Agents.  If no file is specified after '-n', then 'diagram.png' will be used")
-
 args = parser.parse_args()
-
-if args.x:
-	pass
-else:
-	webbrowser.open('https://live.paloaltonetworks.com/t5/customer-advisories/update-to-additional-pan-os-certificate-expirations-and-new/ta-p/572158', new = 2)
 
 if args.w:
 	html_file = args.w
 	console = Console(record=True)
-else:
-	console = Console()
-
-if args.n:
-	diagram = args.n
 else:
 	console = Console()
 
@@ -576,42 +558,6 @@ def process_list(ip):
 		total_devices.append(ip)
 		pass
 
-def fig2img(fig):
-	buf = io.BytesIO()
-	fig.savefig(buf)
-	buf.seek(0)
-	img = Image.open(buf)
-	return img
-
-def create_diagram(my_list):
-	global diagram
-	plt.rcParams["figure.figsize"] = (18, 10)
-	icons = {"agent": "agent.png", "device": "palo.png",}
-	images = {k: PIL.Image.open(fname) for k, fname in icons.items()}
-	nxG = nx.Graph()
-	for x in my_list:
-		nxG.add_node(x[1]+" Agent\n\n\n"+x[0], image=images["agent"])
-		nxG.add_node(x[2]+'\n'+x[3]+'\n\n\n'+x[4]+'\n'+x[5], image=images["device"])
-		nxG.add_edge(x[1]+" Agent\n\n\n"+x[0], x[2]+'\n'+x[3]+'\n\n\n'+x[4]+'\n'+x[5])
-
-	pos = nx.circular_layout(nxG)
-	fig, ax = plt.subplots()
-	nx.draw(nxG, with_labels=True, arrows=True, arrowstyle="-", ax=ax, pos=pos, edge_color='lightgrey', font_weight='bold', width=2, node_size=0, min_source_margin=15, min_target_margin=15,)
-	tr_figure = ax.transData.transform
-	tr_axes = fig.transFigure.inverted().transform
-	icon_size = (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.0125
-	icon_center = icon_size / 2.0
-	for n in nxG.nodes:
-		xf, yf = tr_figure(pos[n])
-		xa, ya = tr_axes((xf, yf))
-		a = plt.axes([xa - icon_center, ya - icon_center, icon_size, icon_size])
-		a.imshow(nxG.nodes[n]["image"])
-		a.axis("off")
-
-	fig = plt.gcf()
-	img = fig2img(fig)
-	img.save(diagram)
-
 def multi_processing():
 	pool = ThreadPool(processes=os.cpu_count())
 	res = list(pool.apply_async(process_list, args=(ip,)) for ip in devices)
@@ -751,16 +697,6 @@ if args.w:
 
 	with open(html_file, 'w', encoding='utf-8') as file:
 	  file.write(filedata)
-else:
-	pass
-
-if args.n:
-	agent_diagram_list.sort()
-	agent_diagram_list = [agent_diagram_list[i] for i in range(len(agent_diagram_list)) if i == 0 or agent_diagram_list[i] != agent_diagram_list[i-1]]
-	create_diagram(agent_diagram_list)
-	with open(html_file, 'a') as file:
-		file.write('<center><p><font size="+6">Relational Diagram</font></p><br><br><img src="'+diagram+'" alt="Relational Diagram"></center>')
-	file.close()
 else:
 	pass
 
